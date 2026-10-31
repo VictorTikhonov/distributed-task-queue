@@ -1,0 +1,15 @@
+server:
+  port: ${SERVER_PORT:8081}
+
+raft:
+  node-id: ${RAFT_NODE_ID:1}
+  heartbeat-interval: 50
+  election-timeout-min: 150
+  election-timeout-max: 300
+  peers:
+    - id: 1
+      url: http://localhost:8081
+    - id: 2
+      url: http://localhost:8082
+    - id: 3
+      url: http://localhost:8083
