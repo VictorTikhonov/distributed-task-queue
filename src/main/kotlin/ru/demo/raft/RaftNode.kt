@@ -1,3 +1,4 @@
+
 package ru.demo.raft
 
 class RaftNode(
@@ -9,12 +10,16 @@ class RaftNode(
     var currentTerm: Int = 0
         private set
 
-    // D узла, за который голосовали в текущем терме
+    // ID кандидата, за которого проголосовал этот узел
     var votedFor: Int? = null
         private set
 
-    // Множество ID узлов, которые проголосовали за кандидата
+    // ID узлов, проголосовавших за этого кандидата
     val votesReceived: MutableSet<Int> = mutableSetOf()
+
+    // ID известного лидера
+    var leaderId: Int? = null
+        private set
 
     @Synchronized
     fun startElection() {
@@ -22,6 +27,7 @@ class RaftNode(
         state = NodeState.CANDIDATE
 
         votedFor = nodeID
+        leaderId = null
 
         votesReceived.clear()
         votesReceived.add(nodeID)
@@ -33,17 +39,18 @@ class RaftNode(
         candidateTerm: Int,
     ): Boolean {
 
-        if (currentTerm > candidateTerm) {
+        // Запрос из устаревшего терма
+        if (candidateTerm < currentTerm) {
             return false
         }
 
-        if (currentTerm < candidateTerm) {
-            currentTerm = candidateTerm
-            state = NodeState.FOLLOWER
-            votedFor = null
-            votesReceived.clear()
+        // Запрос из нового терма
+        if (candidateTerm > currentTerm) {
+            becomeFollower(candidateTerm)
         }
 
+        // Отдаём голос, если ещё не голосовали
+        // или уже голосовали за этого кандидата
         if (votedFor == null || votedFor == candidateId) {
             votedFor = candidateId
             return true
@@ -52,9 +59,58 @@ class RaftNode(
         return false
     }
 
+    @Synchronized
     fun becomeLeader() {
-        if (state == NodeState.CANDIDATE) {
-            state = NodeState.LEADER
+        if (state != NodeState.CANDIDATE) {
+            return
         }
+
+        state = NodeState.LEADER
+        leaderId = nodeID
+    }
+
+    @Synchronized
+    fun receiveHeartbeat(
+        leaderId: Int,
+        leaderTerm: Int,
+    ): Boolean {
+
+        // Heartbeat из устаревшего терма
+        if (leaderTerm < currentTerm) {
+            return false
+        }
+
+        // Heartbeat из нового терма
+        if (leaderTerm > currentTerm) {
+            becomeFollower(leaderTerm)
+        }
+
+        // Проверяем, не известен ли нам уже другой лидер
+        if (this.leaderId != null && this.leaderId != leaderId) {
+            return false
+        }
+
+        // Если мы кандидат, признаём лидера
+        if (state == NodeState.CANDIDATE) {
+            state = NodeState.FOLLOWER
+            votesReceived.clear()
+        }
+
+        // Запоминаем лидера, если ещё не знали его
+        if (this.leaderId == null) {
+            this.leaderId = leaderId
+        }
+
+        return true
+    }
+
+    private fun becomeFollower(newTerm: Int) {
+        currentTerm = newTerm
+        state = NodeState.FOLLOWER
+
+        votedFor = null
+        leaderId = null
+
+        votesReceived.clear()
     }
 }
