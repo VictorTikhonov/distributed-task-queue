@@ -1,6 +1,7 @@
 package ru.demo.task
 
 import org.springframework.stereotype.Service
+import ru.demo.raft.NodeState
 import ru.demo.raft.RaftNode
 import ru.demo.raft.RaftProperties
 import ru.demo.task.dto.TaskResponse
@@ -10,7 +11,8 @@ import java.util.concurrent.atomic.AtomicInteger
 class TaskService(
     private val taskStore: TaskStore,
     private val raftNode: RaftNode,
-    private val raftProperties: RaftProperties
+    private val raftProperties: RaftProperties,
+    private val taskPeerClient: TaskPeerClient
 ) {
 
     private val roundRobinCounter = AtomicInteger(0)
@@ -20,7 +22,7 @@ class TaskService(
             "Task description must not be blank"
         }
 
-        check(raftNode.state == ru.demo.raft.NodeState.LEADER) {
+        check(raftNode.state == NodeState.LEADER) {
             "Only the leader can distribute tasks"
         }
 
@@ -44,7 +46,17 @@ class TaskService(
             assignedNodeId = assignedNodeId
         )
 
-        taskStore.save(task)
+        if (assignedNodeId == raftNode.nodeId) {
+            taskStore.save(task)
+        } else {
+            val peer = raftProperties.peers.firstOrNull {
+                it.id == assignedNodeId
+            } ?: throw IllegalStateException(
+                "Node $assignedNodeId not found in cluster configuration"
+            )
+
+            taskPeerClient.sendTask(peer, task)
+        }
 
         return task
     }
