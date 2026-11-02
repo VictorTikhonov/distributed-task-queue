@@ -1,6 +1,7 @@
 package ru.demo.task
 
 import org.slf4j.LoggerFactory
+import org.springframework.core.ParameterizedTypeReference
 import org.springframework.stereotype.Component
 import org.springframework.web.client.RestClient
 import ru.demo.raft.RaftProperties
@@ -12,6 +13,20 @@ class TaskPeerClient(
 ) {
     private val logger = LoggerFactory.getLogger(TaskPeerClient::class.java)
     private val client = builder.build()
+
+    fun isPeerAvailable(peer: RaftProperties.Peer): Boolean {
+        return try {
+            client.get()
+                .uri("${peer.url}/internal/tasks")
+                .retrieve()
+                .toBodilessEntity()
+
+            true
+        } catch (exception: Exception) {
+            logger.warn("Node {} is unavailable", peer.id)
+            false
+        }
+    }
 
     fun sendTask(
         peer: RaftProperties.Peer,
@@ -33,7 +48,7 @@ class TaskPeerClient(
                 .toBodilessEntity()
 
             logger.info(
-                "Task {} successfully sent to node {}",
+                "Task {} successfully replicated to node {}",
                 task.id,
                 peer.id
             )
@@ -44,8 +59,30 @@ class TaskPeerClient(
                 peer.id,
                 exception
             )
+
             throw IllegalStateException(
                 "Failed to deliver task to node ${peer.id}",
+                exception
+            )
+        }
+    }
+
+    fun getTasks(peer: RaftProperties.Peer): List<Task> {
+        return try {
+            client.get()
+                .uri("${peer.url}/internal/tasks")
+                .retrieve()
+                .body(object : ParameterizedTypeReference<List<Task>>() {})
+                ?: emptyList()
+        } catch (exception: Exception) {
+            logger.error(
+                "Failed to get tasks from node {}",
+                peer.id,
+                exception
+            )
+
+            throw IllegalStateException(
+                "Failed to get tasks from node ${peer.id}",
                 exception
             )
         }

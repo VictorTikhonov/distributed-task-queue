@@ -26,6 +26,14 @@ class TaskController(
             .map { taskService.toResponse(it) }
     }
 
+    @GetMapping("/node/{nodeId}")
+    fun getTasksByNode(
+        @PathVariable nodeId: Int
+    ): List<TaskResponse> {
+        return taskService.getTasksByNode(nodeId)
+            .map { taskService.toResponse(it) }
+    }
+
     @GetMapping("/status/{status}")
     fun getTasksByStatus(
         @PathVariable status: TaskStatus

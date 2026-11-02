@@ -7,19 +7,11 @@ import ru.demo.task.dto.InternalTaskRequest
 @RestController
 @RequestMapping("/internal/tasks")
 class TaskInternalController(
-    private val taskStore: TaskStore,
-    private val raftNode: ru.demo.raft.RaftNode
+    private val taskStore: TaskStore
 ) {
-
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    fun receiveTask(
-        @RequestBody request: InternalTaskRequest
-    ): Task {
-        require(request.assignedNodeId == raftNode.nodeId) {
-            "Task is assigned to another node"
-        }
-
+    fun receiveTask(@RequestBody request: InternalTaskRequest): Task {
         val task = Task(
             id = request.id,
             description = request.description,
@@ -32,7 +24,5 @@ class TaskInternalController(
     }
 
     @GetMapping
-    fun getTasks(): List<Task> {
-        return taskStore.findAll()
-    }
+    fun getTasks(): List<Task> = taskStore.findAll()
 }

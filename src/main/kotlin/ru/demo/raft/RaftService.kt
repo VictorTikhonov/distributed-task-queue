@@ -8,6 +8,7 @@ import org.springframework.context.event.EventListener
 import org.springframework.stereotype.Service
 import ru.demo.raft.dto.HeartbeatRequest
 import ru.demo.raft.dto.RequestVoteRequest
+import ru.demo.task.TaskService
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledExecutorService
@@ -17,7 +18,8 @@ import java.util.concurrent.TimeUnit
 class RaftService(
     private val node: RaftNode,
     private val properties: RaftProperties,
-    private val peerClient: RaftPeerClient
+    private val peerClient: RaftPeerClient,
+    private val taskService: TaskService
 ) {
     private val logger = LoggerFactory.getLogger(RaftService::class.java)
 
@@ -173,6 +175,9 @@ class RaftService(
                     if (voteAdded && node.hasMajority(totalNodes)) {
                         if (node.becomeLeader()) {
                             sendHeartbeats()
+
+                            // Новый лидер собирает задачи со всех узлов.
+                            taskService.synchronizeTasksFromPeers()
                         }
                     }
                 }
