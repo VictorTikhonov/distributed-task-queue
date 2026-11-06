@@ -104,6 +104,7 @@ class RaftNode(
         return false
     }
 
+
     @Synchronized
     fun receiveHeartbeat(
         incomingLeaderId: Int,
@@ -117,16 +118,15 @@ class RaftNode(
             becomeFollower(leaderTerm)
         }
 
-        // Не принимаем heartbeat от другого лидера в том же терме.
-        if (state == NodeState.LEADER && incomingLeaderId != nodeId) {
-            return false
+        // Лидер не должен принимать heartbeat от другого лидера в том же терме.
+        if (state == NodeState.LEADER) {
+            return incomingLeaderId == nodeId
         }
 
         if (leaderId != null && leaderId != incomingLeaderId) {
             return false
         }
 
-        // Получение heartbeat подтверждает наличие действующего лидера.
         if (state != NodeState.FOLLOWER) {
             logger.info(
                 "Node {}: Became FOLLOWER. Leader={}, Term={}",

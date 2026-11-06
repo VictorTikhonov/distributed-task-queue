@@ -29,6 +29,8 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher")
+    testImplementation("org.mockito:mockito-core")
+    testImplementation("org.slf4j:slf4j-api")
 }
 
 kotlin {
@@ -39,4 +41,19 @@ kotlin {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+
+    dependsOn(tasks.bootJar)
+
+    testLogging {
+        events(
+            "passed",
+            "skipped",
+            "failed"
+        )
+
+        showStandardStreams = true
+
+        exceptionFormat =
+            org.gradle.api.tasks.testing.logging.TestExceptionFormat.FULL
+    }
 }
